@@ -7,78 +7,91 @@ from datetime import datetime
 import feedparser
 
 
+import requests
+from bs4 import BeautifulSoup
+import pandas as pd
+from datetime import datetime
+
 # ---------- 1. ArtRabbit Scraper ----------
 def scrape_artrabbit():
-    urls = {
-        "UK": "https://www.artrabbit.com/events/search?location=united-kingdom&tag=emerging",
-        "Italy": "https://www.artrabbit.com/events/search?location=italy&tag=emerging"
+    url = "https://www.artrabbit.com/events/search?city=London"
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
     }
-    all_data = []
-    headers = {"User-Agent": "Mozilla/5.0"}
+    print("Fetching ArtRabbit events...")
+    res = requests.get(url, headers=headers)
+    print(f"Status code: {res.status_code}")
+    print(f"Content preview: {res.text[:500]}")
 
-    for region, url in urls.items():
-        response = requests.get(url, headers=headers)
-        soup = BeautifulSoup(response.content, 'html.parser')
-        events = soup.find_all('div', class_='event-title-wrapper')
-
-        for event in events:
-            title_tag = event.find('a', class_='event-title')
-            if title_tag:
-                title = title_tag.text.strip()
-                link = "https://www.artrabbit.com" + title_tag.get('href')
-                name = title.replace('Group Exhibition:', '').replace('Solo Exhibition:', '').strip()
-                all_data.append({
-                    "artist_or_title": name,
-                    "region": region,
-                    "event_url": link,
-                    "source": "ArtRabbit",
-                    "scraped_at": datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')
-                })
-
-    return pd.DataFrame(all_data)
-
-
-# ---------- 2. Artsy Editorial Scraper (basic headline matcher) ----------
-def scrape_artsy_editorial():
-    url = "https://www.artsy.net/articles"
-    headers = {"User-Agent": "Mozilla/5.0"}
-    response = requests.get(url, headers=headers)
-    soup = BeautifulSoup(response.content, 'html.parser')
-
-    articles = soup.find_all('a', class_='Box-sc-kv6pi1-0')
+    soup = BeautifulSoup(res.text, "html.parser")
+    events = soup.select(".event-list__item")
     data = []
-    for article in articles:
-        title = article.text.strip()
-        href = article.get('href')
-        if "trending" in title.lower() or "emerging" in title.lower():
-            data.append({
-                "article_title": title,
-                "article_url": f"https://www.artsy.net{href}",
-                "source": "Artsy Editorial",
-                "scraped_at": datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')
-            })
+
+    for event in events:
+        title = event.select_one(".event-title")
+        venue = event.select_one(".event-venue")
+        date = event.select_one(".event-date")
+
+        data.append({
+            "title": title.text.strip() if title else "N/A",
+            "venue": venue.text.strip() if venue else "N/A",
+            "date": date.text.strip() if date else "N/A",
+            "scraped_at": datetime.utcnow()
+        })
 
     return pd.DataFrame(data)
 
 
-# ---------- 3. Frieze Article Scraper ----------
+# ---------- 2. Artsy Editorial Scraper ----------
+def scrape_artsy_editorial():
+    url = "https://www.artsy.net/editorial"
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
+    }
+    print("Fetching Artsy Editorial...")
+    res = requests.get(url, headers=headers)
+    print(f"Status code: {res.status_code}")
+    print(f"Content preview: {res.text[:500]}")
+
+    soup = BeautifulSoup(res.text, "html.parser")
+    articles = soup.select("a[href*='/article/']")
+    data = []
+
+    for art in articles:
+        title = art.text.strip()
+        href = art["href"]
+        data.append({
+            "title": title,
+            "url": f"https://www.artsy.net{href}",
+            "scraped_at": datetime.utcnow()
+        })
+
+    return pd.DataFrame(data)
+
+
+# ---------- 3. Frieze Articles Scraper ----------
 def scrape_frieze_articles():
     url = "https://www.frieze.com/latest"
-    headers = {"User-Agent": "Mozilla/5.0"}
-    response = requests.get(url, headers=headers)
-    soup = BeautifulSoup(response.content, 'html.parser')
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
+    }
+    print("Fetching Frieze articles...")
+    res = requests.get(url, headers=headers)
+    print(f"Status code: {res.status_code}")
+    print(f"Content preview: {res.text[:500]}")
 
-    items = soup.find_all('a', class_='link-tile__link')
+    soup = BeautifulSoup(res.text, "html.parser")
+    articles = soup.select(".card--teaser")
     data = []
-    for item in items:
-        title = item.find('span', class_='link-tile__headline')
-        if title and any(word in title.text.lower() for word in ["studio", "emerging", "artist"]):
-            data.append({
-                "article_title": title.text.strip(),
-                "article_url": "https://www.frieze.com" + item.get('href'),
-                "source": "Frieze",
-                "scraped_at": datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')
-            })
+
+    for article in articles:
+        title = article.select_one(".card__title")
+        link = article.find("a", href=True)
+        data.append({
+            "title": title.text.strip() if title else "N/A",
+            "url": f"https://www.frieze.com{link['href']}" if link else "N/A",
+            "scraped_at": datetime.utcnow()
+        })
 
     return pd.DataFrame(data)
 

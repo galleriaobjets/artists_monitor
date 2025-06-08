@@ -72,6 +72,8 @@ for file in os.listdir(DATA_FOLDER):
                 st.subheader(f"📁 {file}")
                 st.dataframe(df)
             else:
-                st.warning(f"{file} is currently empty.")
+                st.info(f"📁 {file} is currently empty.")
         except pd.errors.EmptyDataError:
-            st.warning(f"{file} could not be read (no columns or malformed).")
+            st.warning(f"⚠️ {file} could not be read (no columns to parse).")
+        except Exception as e:
+            st.error(f"❌ Failed to read {file}: {e}")

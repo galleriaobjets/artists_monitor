@@ -66,13 +66,12 @@ st.header("📊 Summary (click scraper buttons to populate data)")
 for file in os.listdir(DATA_FOLDER):
     if file.endswith(".csv"):
         file_path = os.path.join(DATA_FOLDER, file)
-try:
-    df = pd.read_csv(file_path)
-    if not df.empty:
-        st.subheader(f"📁 {file}")
-        st.dataframe(df)
-    else:
-        st.warning(f"{file} is empty.")
-except pd.errors.EmptyDataError:
-    st.warning(f"{file} is not ready yet or has no data.")
-
+        try:
+            df = pd.read_csv(file_path)
+            if not df.empty:
+                st.subheader(f"📁 {file}")
+                st.dataframe(df)
+            else:
+                st.warning(f"{file} is currently empty.")
+        except pd.errors.EmptyDataError:
+            st.warning(f"{file} could not be read (no columns or malformed).")
